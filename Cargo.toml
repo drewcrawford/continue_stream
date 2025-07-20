@@ -1,0 +1,8 @@
+[package]
+name = "continue_stream"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+atomic-waker = "1"
+futures = "0.3"
