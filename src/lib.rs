@@ -23,13 +23,15 @@ Unlike more complex channel types:
 
  */
 
-use std::sync::{Arc, Mutex};
+use std::collections::VecDeque;
+use std::sync::{Arc};
+use wasm_safe_mutex::Mutex;
 use std::sync::atomic::AtomicBool;
 use atomic_waker::AtomicWaker;
 
 #[derive(Debug)]
 struct SharedLock<T> {
-    buffer: Vec<T>,
+    buffer: VecDeque<T>,
 }
 #[derive(Debug)]
 struct Shared<T> {
@@ -50,7 +52,7 @@ pub struct Receiver<T> {
 
 pub fn continuation<R>() -> (Sender<R>, Receiver<R>) {
     let shared = Arc::new(Shared {
-        lock: Mutex::new(SharedLock { buffer: Vec::new() }),
+        lock: Mutex::new(SharedLock { buffer: VecDeque::new() }),
         waker: AtomicWaker::new(),
         sender_dropped: AtomicBool::new(false),
         receiver_dropped: AtomicBool::new(false),
@@ -66,7 +68,7 @@ pub fn continuation<R>() -> (Sender<R>, Receiver<R>) {
 
 impl<T> Sender<T> {
     pub fn send(&self, item: T) {
-        self.shared.lock.lock().unwrap().buffer.push(item);
+        self.shared.lock.lock_sync().buffer.push_back(item);
         self.shared.waker.wake();
     }
     pub fn is_cancelled(&self) -> bool {
@@ -89,7 +91,7 @@ impl<T> Receiver<T> {
     }
 
     pub fn is_cancelled(&self) -> bool {
-        self.shared.lock.lock().unwrap().buffer.is_empty()
+        self.shared.sender_dropped.load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 
@@ -107,8 +109,9 @@ impl<T> std::future::Future for ReceiveFuture<T> {
     type Output = Option<T>;
 
     fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
-        let mut lock = self.shared.lock.lock().unwrap();
-        if let Some(item) = lock.buffer.pop() {
+        //need to hold this open until registering the waker.
+        let mut lock = self.shared.lock.lock_sync();
+        if let Some(item) = lock.buffer.pop_front() {
             std::task::Poll::Ready(Some(item))
         }
         else if self.shared.sender_dropped.load(std::sync::atomic::Ordering::Relaxed) {
@@ -116,6 +119,7 @@ impl<T> std::future::Future for ReceiveFuture<T> {
         }
         else {
             self.shared.waker.register(cx.waker());
+            drop(lock);
             std::task::Poll::Pending
         }
     }
@@ -125,8 +129,8 @@ impl<T> futures::Stream for Receiver<T> {
     type Item = T;
 
     fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Option<Self::Item>> {
-        let mut lock = self.shared.lock.lock().unwrap();
-        if let Some(item) = lock.buffer.pop() {
+        let mut lock = self.shared.lock.lock_sync();
+        if let Some(item) = lock.buffer.pop_front() {
             std::task::Poll::Ready(Some(item))
         } else if self.shared.sender_dropped.load(std::sync::atomic::Ordering::Relaxed) {
             std::task::Poll::Ready(None)
@@ -134,6 +138,20 @@ impl<T> futures::Stream for Receiver<T> {
             self.shared.waker.register(cx.waker());
             std::task::Poll::Pending
         }
+    }
+}
+
+#[cfg(test)] mod tests {
+    use std::thread;
+    use std::time::Duration;
+
+    #[test_executors::async_test] async fn initially_empty() {
+        let (sender, receiver) = super::continuation::<()>();
+        thread::spawn(move || {
+            thread::sleep(Duration::from_millis(20));
+            sender.send(())
+        });
+        receiver.receive().await;
     }
 }
 

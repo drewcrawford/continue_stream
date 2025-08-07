@@ -6,3 +6,11 @@ edition = "2024"
 [dependencies]
 atomic-waker = "1"
 futures = "0.3"
+wasm_safe_mutex = {path = "../wasm_safe_mutex"}
+
+[dev-dependencies]
+test_executors = "0.3"
+
+[patch.crates-io]
+test_executors = { path = "../test_executors" }
+test_executors_proc = { path = "../test_executors/test_executors_proc" }
