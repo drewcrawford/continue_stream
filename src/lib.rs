@@ -120,11 +120,11 @@
 //! # }
 //! ```
 
-use std::collections::VecDeque;
-use std::sync::{Arc};
-use wasm_safe_mutex::Mutex;
-use std::sync::atomic::AtomicBool;
 use atomic_waker::AtomicWaker;
+use std::collections::VecDeque;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use wasm_safe_mutex::Mutex;
 
 #[derive(Debug)]
 struct SharedLock<T> {
@@ -273,7 +273,9 @@ pub struct Receiver<T> {
 /// ```
 pub fn continuation<R>() -> (Sender<R>, Receiver<R>) {
     let shared = Arc::new(Shared {
-        lock: Mutex::new(SharedLock { buffer: VecDeque::new() }),
+        lock: Mutex::new(SharedLock {
+            buffer: VecDeque::new(),
+        }),
         waker: AtomicWaker::new(),
         sender_dropped: AtomicBool::new(false),
         receiver_dropped: AtomicBool::new(false),
@@ -324,7 +326,7 @@ impl<T> Sender<T> {
         self.shared.lock.lock_sync().buffer.push_back(item);
         self.shared.waker.wake();
     }
-    
+
     /// Checks if the receiver has been dropped (cancelled).
     ///
     /// This method allows the sender to detect when the receiver is no longer
@@ -355,13 +357,17 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub fn is_cancelled(&self) -> bool {
-        self.shared.receiver_dropped.load(std::sync::atomic::Ordering::Relaxed)
+        self.shared
+            .receiver_dropped
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 
 impl<T> Drop for Sender<T> {
     fn drop(&mut self) {
-        self.shared.sender_dropped.store(true, std::sync::atomic::Ordering::Relaxed);
+        self.shared
+            .sender_dropped
+            .store(true, std::sync::atomic::Ordering::Relaxed);
         self.shared.waker.wake();
     }
 }
@@ -369,8 +375,6 @@ impl<T> Drop for Sender<T> {
 // ============================================================================
 // Boilerplate trait implementations
 // ============================================================================
-
-
 
 impl<T> std::fmt::Display for Sender<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -421,7 +425,7 @@ impl<T> Receiver<T> {
     /// // Send from another async task
     /// # let handle = async move {
     /// #     sender.send(1);
-    /// #     sender.send(2); 
+    /// #     sender.send(2);
     /// #     sender.send(3);
     /// # };
     /// # handle.await;
@@ -469,13 +473,17 @@ impl<T> Receiver<T> {
     /// # }
     /// ```
     pub fn is_cancelled(&self) -> bool {
-        self.shared.sender_dropped.load(std::sync::atomic::Ordering::Relaxed)
+        self.shared
+            .sender_dropped
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 
 impl<T> Drop for Receiver<T> {
     fn drop(&mut self) {
-        self.shared.receiver_dropped.store(true, std::sync::atomic::Ordering::Relaxed);
+        self.shared
+            .receiver_dropped
+            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 }
 
@@ -515,16 +523,21 @@ pub struct ReceiveFuture<T> {
 impl<T> std::future::Future for ReceiveFuture<T> {
     type Output = Option<T>;
 
-    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
+    fn poll(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
         //need to hold this open until registering the waker.
         let mut lock = self.shared.lock.lock_sync();
         if let Some(item) = lock.buffer.pop_front() {
             std::task::Poll::Ready(Some(item))
-        }
-        else if self.shared.sender_dropped.load(std::sync::atomic::Ordering::Relaxed) {
+        } else if self
+            .shared
+            .sender_dropped
+            .load(std::sync::atomic::Ordering::Relaxed)
+        {
             std::task::Poll::Ready(None)
-        }
-        else {
+        } else {
             self.shared.waker.register(cx.waker());
             drop(lock);
             std::task::Poll::Pending
@@ -535,11 +548,18 @@ impl<T> std::future::Future for ReceiveFuture<T> {
 impl<T> futures::Stream for Receiver<T> {
     type Item = T;
 
-    fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Option<Self::Item>> {
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
         let mut lock = self.shared.lock.lock_sync();
         if let Some(item) = lock.buffer.pop_front() {
             std::task::Poll::Ready(Some(item))
-        } else if self.shared.sender_dropped.load(std::sync::atomic::Ordering::Relaxed) {
+        } else if self
+            .shared
+            .sender_dropped
+            .load(std::sync::atomic::Ordering::Relaxed)
+        {
             std::task::Poll::Ready(None)
         } else {
             self.shared.waker.register(cx.waker());
@@ -548,11 +568,13 @@ impl<T> futures::Stream for Receiver<T> {
     }
 }
 
-#[cfg(test)] mod tests {
+#[cfg(test)]
+mod tests {
     use std::thread;
     use std::time::Duration;
 
-    #[test_executors::async_test] async fn initially_empty() {
+    #[test_executors::async_test]
+    async fn initially_empty() {
         let (sender, receiver) = super::continuation::<()>();
         thread::spawn(move || {
             thread::sleep(Duration::from_millis(20));
@@ -561,4 +583,3 @@ impl<T> futures::Stream for Receiver<T> {
         receiver.receive().await;
     }
 }
-

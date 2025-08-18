@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 atomic-waker = "1"
 futures = "0.3"
-wasm_safe_mutex = {path = "../wasm_safe_mutex"}
+wasm_safe_mutex = "0.1.0"
 
 [dev-dependencies]
 test_executors = "0.3"
