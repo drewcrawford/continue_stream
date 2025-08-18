@@ -366,6 +366,18 @@ impl<T> Drop for Sender<T> {
     }
 }
 
+// ============================================================================
+// Boilerplate trait implementations
+// ============================================================================
+
+
+
+impl<T> std::fmt::Display for Sender<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Sender {{ cancelled: {} }}", self.is_cancelled())
+    }
+}
+
 impl<T> Receiver<T> {
     /// Receives a single value from the channel.
     ///
@@ -464,6 +476,12 @@ impl<T> Receiver<T> {
 impl<T> Drop for Receiver<T> {
     fn drop(&mut self) {
         self.shared.receiver_dropped.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+impl<T> std::fmt::Display for Receiver<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Receiver {{ cancelled: {} }}", self.is_cancelled())
     }
 }
 
