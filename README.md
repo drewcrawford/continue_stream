@@ -1,5 +1,7 @@
 # continue_stream
 
+![logo](art/logo.png)
+
 A Swift-style `AsyncIterator.Continuation`-style channel for Rust.
 
 This crate provides a lightweight, single-producer single-consumer (SPSC) channel designed specifically for bridging synchronous and asynchronous code. It's the streaming counterpart to the [continue](https://crates.io/crates/continue) crate, optimized for sending multiple values over time rather than a single result.
@@ -155,4 +157,4 @@ Implements `futures::Stream` for ergonomic async iteration.
 
 ## License
 
-This project is licensed under the same terms as the continue crate.
+This project is licensed under the MIT or Apache-2.0 license, at your option.

@@ -1,0 +1,4 @@
+continue_stream https://sealedabstract.com/code/continue_stream
+A Swift-style AsyncIterator.Continuation-style channel for Rust
+Copyright 2025 Drew Crawford.
+

@@ -1,6 +1,7 @@
 #![no_std]
-
 //! A Swift-style `AsyncIterator.Continuation`-style channel for Rust.
+//!
+//! ![logo](../../../art/logo.png)
 //!
 //! This crate provides a lightweight, single-producer single-consumer (SPSC) channel designed
 //! specifically for bridging synchronous and asynchronous code. It's the streaming counterpart
