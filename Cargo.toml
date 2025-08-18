@@ -12,5 +12,5 @@ wasm_safe_mutex = {path = "../wasm_safe_mutex"}
 test_executors = "0.3"
 
 [patch.crates-io]
-test_executors = { path = "../test_executors" }
-test_executors_proc = { path = "../test_executors/test_executors_proc" }
+#test_executors = { path = "../test_executors" }
+#test_executors_proc = { path = "../test_executors/test_executors_proc" }
