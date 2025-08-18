@@ -11,6 +11,7 @@ This crate provides a lightweight, single-producer single-consumer (SPSC) channe
 * **Cancellation-aware**: Both sides can detect when the other has been dropped
 * **Stream implementation**: Receivers implement `futures::Stream` for ergonomic async iteration
 * **Lightweight**: No cloning overhead, optimized for single-producer single-consumer use
+* **`no_std` compatible**: Works in embedded and WASM environments with `alloc`
 
 ## Design Philosophy
 
@@ -35,6 +36,18 @@ Add this to your `Cargo.toml`:
 [dependencies]
 continue_stream = "0.1.0"
 ```
+
+For `no_std` environments (embedded, WASM):
+
+```toml
+[dependencies]
+continue_stream = { version = "0.1.0", default-features = false }
+```
+
+### Platform Support
+
+* **`no_std` compatible**: Works without the standard library, only requires `alloc`
+* **Full functionality**: All features including threading work in both `std` and `no_std` environments
 
 ## Examples
 

@@ -1,3 +1,5 @@
+#![no_std]
+
 //! A Swift-style `AsyncIterator.Continuation`-style channel for Rust.
 //!
 //! This crate provides a lightweight, single-producer single-consumer (SPSC) channel designed
@@ -12,6 +14,7 @@
 //! * **Cancellation-aware**: Both sides can detect when the other has been dropped
 //! * **Stream implementation**: Receivers implement `futures::Stream` for ergonomic async iteration
 //! * **Lightweight**: No cloning overhead, optimized for single-producer single-consumer use
+//! * **`no_std` compatible**: Works in embedded and WASM environments with `alloc`
 //!
 //! # Design Philosophy
 //!
@@ -31,6 +34,17 @@
 //! * Avoiding `Clone` simplifies the problem and unlocks the potential for more efficient
 //!   implementations.
 //! * Focus on bridging sync and async code makes threading behavior more defined and predictable.
+//!
+//! # Platform Support
+//!
+//! This crate is `no_std` compatible and works in embedded and WASM environments.
+//! By default, the crate works without the standard library, requiring only `alloc`.
+//!
+//! To use in a `no_std` environment:
+//! ```toml
+//! [dependencies]
+//! continue_stream = { version = "0.1", default-features = false }
+//! ```
 //!
 //! # Examples
 //!
@@ -120,10 +134,12 @@
 //! # }
 //! ```
 
+extern crate alloc;
+
+use alloc::collections::VecDeque;
+use alloc::sync::Arc;
 use atomic_waker::AtomicWaker;
-use std::collections::VecDeque;
-use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
+use core::sync::atomic::AtomicBool;
 use wasm_safe_mutex::Mutex;
 
 #[derive(Debug)]
@@ -359,7 +375,7 @@ impl<T> Sender<T> {
     pub fn is_cancelled(&self) -> bool {
         self.shared
             .receiver_dropped
-            .load(std::sync::atomic::Ordering::Relaxed)
+            .load(core::sync::atomic::Ordering::Relaxed)
     }
 }
 
@@ -367,7 +383,7 @@ impl<T> Drop for Sender<T> {
     fn drop(&mut self) {
         self.shared
             .sender_dropped
-            .store(true, std::sync::atomic::Ordering::Relaxed);
+            .store(true, core::sync::atomic::Ordering::Relaxed);
         self.shared.waker.wake();
     }
 }
@@ -376,8 +392,8 @@ impl<T> Drop for Sender<T> {
 // Boilerplate trait implementations
 // ============================================================================
 
-impl<T> std::fmt::Display for Sender<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<T> core::fmt::Display for Sender<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Sender {{ cancelled: {} }}", self.is_cancelled())
     }
 }
@@ -475,7 +491,7 @@ impl<T> Receiver<T> {
     pub fn is_cancelled(&self) -> bool {
         self.shared
             .sender_dropped
-            .load(std::sync::atomic::Ordering::Relaxed)
+            .load(core::sync::atomic::Ordering::Relaxed)
     }
 }
 
@@ -483,12 +499,12 @@ impl<T> Drop for Receiver<T> {
     fn drop(&mut self) {
         self.shared
             .receiver_dropped
-            .store(true, std::sync::atomic::Ordering::Relaxed);
+            .store(true, core::sync::atomic::Ordering::Relaxed);
     }
 }
 
-impl<T> std::fmt::Display for Receiver<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<T> core::fmt::Display for Receiver<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Receiver {{ cancelled: {} }}", self.is_cancelled())
     }
 }
@@ -520,27 +536,27 @@ pub struct ReceiveFuture<T> {
     shared: Arc<Shared<T>>,
 }
 
-impl<T> std::future::Future for ReceiveFuture<T> {
+impl<T> core::future::Future for ReceiveFuture<T> {
     type Output = Option<T>;
 
     fn poll(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Self::Output> {
+        self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> core::task::Poll<Self::Output> {
         //need to hold this open until registering the waker.
         let mut lock = self.shared.lock.lock_sync();
         if let Some(item) = lock.buffer.pop_front() {
-            std::task::Poll::Ready(Some(item))
+            core::task::Poll::Ready(Some(item))
         } else if self
             .shared
             .sender_dropped
-            .load(std::sync::atomic::Ordering::Relaxed)
+            .load(core::sync::atomic::Ordering::Relaxed)
         {
-            std::task::Poll::Ready(None)
+            core::task::Poll::Ready(None)
         } else {
             self.shared.waker.register(cx.waker());
             drop(lock);
-            std::task::Poll::Pending
+            core::task::Poll::Pending
         }
     }
 }
@@ -549,27 +565,28 @@ impl<T> futures::Stream for Receiver<T> {
     type Item = T;
 
     fn poll_next(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Self::Item>> {
+        self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> core::task::Poll<Option<Self::Item>> {
         let mut lock = self.shared.lock.lock_sync();
         if let Some(item) = lock.buffer.pop_front() {
-            std::task::Poll::Ready(Some(item))
+            core::task::Poll::Ready(Some(item))
         } else if self
             .shared
             .sender_dropped
-            .load(std::sync::atomic::Ordering::Relaxed)
+            .load(core::sync::atomic::Ordering::Relaxed)
         {
-            std::task::Poll::Ready(None)
+            core::task::Poll::Ready(None)
         } else {
             self.shared.waker.register(cx.waker());
-            std::task::Poll::Pending
+            core::task::Poll::Pending
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    extern crate std;
     use std::thread;
     use std::time::Duration;
 

@@ -8,13 +8,16 @@ homepage = "https://sealedabstract.com/code/continue_stream"
 license = "MIT OR Apache-2.0"
 keywords = ["continuation", "async", "channel", "iterator", "stream"]
 description = "A Swift-style AsyncIterator.Continuation-style channel for Rust"
-categories = ["asynchronous", "concurrency", "rust-patterns"]
+categories = ["asynchronous", "concurrency", "rust-patterns","no-std"]
 exclude = [".*"]
 rust-version = "1.85.1"
 
+[features]
+
+
 [dependencies]
-atomic-waker = "1"
-futures = "0.3"
+atomic-waker = { version = "1", default-features = false }
+futures = { version = "0.3", default-features = false }
 wasm_safe_mutex = "0.1.0"
 
 [dev-dependencies]
