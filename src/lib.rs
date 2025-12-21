@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 #![no_std]
 //! A Swift-style `AsyncIterator.Continuation`-style channel for Rust.
 //!
@@ -587,8 +588,14 @@ impl<T> futures::Stream for Receiver<T> {
 
 #[cfg(test)]
 mod tests {
+
+    #[cfg(target_arch = "wasm32")]
+    wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
     extern crate std;
+    #[cfg(not(target_arch = "wasm32"))]
     use std::thread;
+    #[cfg(target_arch = "wasm32")]
+    use wasm_thread as thread;
     use std::time::Duration;
 
     #[test_executors::async_test]
