@@ -18,7 +18,7 @@ rust-version = "1.85.1"
 [dependencies]
 atomic-waker = { version = "1", default-features = false }
 futures = { version = "0.3", default-features = false }
-wasm_safe_mutex = "0.1.0"
+wasm_safe_thread = "0.1.1"
 
 [dev-dependencies]
 test_executors = "0.4.1"

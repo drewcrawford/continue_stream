@@ -142,7 +142,7 @@ use alloc::collections::VecDeque;
 use alloc::sync::Arc;
 use atomic_waker::AtomicWaker;
 use core::sync::atomic::AtomicBool;
-use wasm_safe_mutex::Mutex;
+use wasm_safe_thread::Mutex;
 
 #[derive(Debug)]
 struct SharedLock<T> {
